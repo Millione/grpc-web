@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeSet, HashSet},
     convert::TryFrom,
+    fmt::Debug,
     sync::Arc,
     time::Duration,
 };
@@ -57,12 +58,12 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new() -> Config {
+    pub fn new() -> Self {
         Config {
             allowed_origins: AllowedOrigins::Any,
             exposed_headers: DEFAULT_EXPOSED_HEADERS
                 .iter()
-                .cloned()
+                .copied()
                 .map(HeaderName::from_static)
                 .collect(),
             max_age: Some(DEFAULT_MAX_AGE),
@@ -71,17 +72,16 @@ impl Config {
     }
 
     #[allow(clippy::mutable_key_type)]
-    pub fn allow_origins<I>(self, origins: I) -> Config
+    #[must_use]
+    pub fn allow_origins<I>(self, origins: I) -> Self
     where
         I: IntoIterator,
         HeaderValue: TryFrom<I::Item>,
+        <HeaderValue as TryFrom<I::Item>>::Error: Debug,
     {
         let origins = origins
             .into_iter()
-            .map(|v| match TryFrom::try_from(v) {
-                Ok(uri) => uri,
-                Err(_) => panic!("invalid origin"),
-            })
+            .map(|v| TryFrom::try_from(v).expect("invalid origin"))
             .collect();
 
         Self {
@@ -90,30 +90,31 @@ impl Config {
         }
     }
 
-    pub fn expose_headers<I>(mut self, headers: I) -> Config
+    #[must_use]
+    pub fn expose_headers<I>(mut self, headers: I) -> Self
     where
         I: IntoIterator,
         HeaderName: TryFrom<I::Item>,
+        <HeaderName as TryFrom<I::Item>>::Error: Debug,
     {
         let iter = headers
             .into_iter()
-            .map(|header| match TryFrom::try_from(header) {
-                Ok(header) => header,
-                Err(_) => panic!("invalid header"),
-            });
+            .map(|header| TryFrom::try_from(header).expect("invalid header"));
 
         self.exposed_headers.extend(iter);
         self
     }
 
-    pub fn max_age<T: Into<Option<Duration>>>(self, max_age: T) -> Config {
+    #[must_use]
+    pub fn max_age<T: Into<Option<Duration>>>(self, max_age: T) -> Self {
         Self {
             max_age: max_age.into(),
             ..self
         }
     }
 
-    pub fn allow_credentials(self, allow_credentials: bool) -> Config {
+    #[must_use]
+    pub fn allow_credentials(self, allow_credentials: bool) -> Self {
         Self {
             allow_credentials,
             ..self
@@ -173,7 +174,7 @@ impl Cors {
             return Err(Error::OriginNotAllowed);
         }
 
-        if !self.is_method_allowed(req_headers.get(REQUEST_METHOD)) {
+        if !is_method_allowed(req_headers.get(REQUEST_METHOD)) {
             return Err(Error::MethodNotAllowed);
         }
 
@@ -202,21 +203,19 @@ impl Cors {
 
         headers
     }
+}
 
-    fn is_method_allowed(&self, header: Option<&HeaderValue>) -> bool {
-        match header {
-            Some(value) => match Method::from_bytes(value.as_bytes()) {
-                Ok(method) => DEFAULT_ALLOWED_METHODS.contains(&method),
-                Err(_) => {
-                    debug!("access-control-request-method {:?} is not valid", value);
-                    false
-                }
-            },
-            None => {
-                debug!("access-control-request-method is missing");
-                false
-            }
+fn is_method_allowed(header: Option<&HeaderValue>) -> bool {
+    if let Some(value) = header {
+        if let Ok(method) = Method::from_bytes(value.as_bytes()) {
+            DEFAULT_ALLOWED_METHODS.contains(&method)
+        } else {
+            debug!("access-control-request-method {:?} is not valid", value);
+            false
         }
+    } else {
+        debug!("access-control-request-method is missing");
+        false
     }
 }
 

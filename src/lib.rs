@@ -97,9 +97,9 @@ where
 
                         let fut = self.inner.call(cx, coerce_request(req, encoding));
 
-                        let mut res = coerce_response(fut.await?, accept);
-                        res.headers_mut().extend(headers);
-                        Ok(res)
+                        let mut resp = coerce_response(fut.await?, accept);
+                        resp.headers_mut().extend(headers);
+                        Ok(resp)
                     }
                     Err(e) => {
                         debug!(kind = "inflight", error=?e, ?req);
@@ -198,7 +198,7 @@ impl<'a> RequestKind<'a> {
     fn new(headers: &'a HeaderMap, method: &'a Method, version: Version) -> Self {
         if matches!(
             headers.get(CONTENT_TYPE).and_then(|val| val.to_str().ok()),
-            Some(GRPC_WEB) | Some(GRPC_WEB_PROTO) | Some(GRPC_WEB_TEXT) | Some(GRPC_WEB_TEXT_PROTO)
+            Some(GRPC_WEB | GRPC_WEB_PROTO | GRPC_WEB_TEXT | GRPC_WEB_TEXT_PROTO)
         ) {
             return RequestKind::InFlight {
                 method,
