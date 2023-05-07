@@ -14,7 +14,7 @@ async-trait = "0.1"
 base64 = "0.21"
 bytes = "1.0"
 futures = "0.3"
-grpc-web = { path = "../../grpc-web" }
+grpc-web = { path = "../" }
 hyper = "0.14"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["net"] }
