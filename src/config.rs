@@ -18,10 +18,6 @@ use http::{
     HeaderMap, HeaderValue, Method,
 };
 use tracing::debug;
-use volo::Service;
-use volo_grpc::{body::Body, context::ServerContext, server::NamedService, Status};
-
-use crate::WebService;
 
 const DEFAULT_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
@@ -120,20 +116,6 @@ impl Config {
             ..self
         }
     }
-
-    pub fn enable<S>(&self, service: S) -> WebService<S>
-    where
-        S: Service<ServerContext, http::Request<hyper::Body>, Response = http::Response<Body>>
-            + NamedService
-            + Clone
-            + Send
-            + Sync
-            + 'static,
-        S::Error: Into<Status>,
-    {
-        tracing::trace!("grpc-web enabled for {}", S::NAME);
-        WebService::new(service, Cors::new(self.clone()))
-    }
 }
 
 impl Default for Config {
@@ -148,7 +130,7 @@ pub struct Cors {
 }
 
 impl Cors {
-    fn new(config: Config) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             inner: Arc::new(config),
         }

@@ -1,3 +1,40 @@
+//! Enables volo-grpc servers to handle requests from `grpc-web` clients directly, without the need
+//! of an external proxy.
+//!
+//! ## Usage
+//!
+//! Add this to your `Cargo.toml`:
+//!
+//! ```toml
+//! [build-dependencies]
+//! grpc-web = "0.1"
+//! ```
+//!
+//! ## Example
+//!
+//! The easiest way to get started, is to call the function with your volo-grpc service and allow
+//! the volo-grpc server to accept HTTP/1.1 requests:
+//!
+//! ```rust, ignore
+//! #[tokio::main]
+//! async fn main() {
+//!     let addr: SocketAddr = "[::]:8080".parse().unwrap();
+//!     let addr = volo::net::Address::from(addr);
+//!
+//!     Server::new()
+//!         .accept_http1(true)
+//!         .layer_outer(WebLayer::new(Cors::new(Config::default())))
+//!         .add_service(ServiceBuilder::new(GreeterServer::new(S)).build())
+//!         .run(address)
+//!         .await
+//!         .unwrap()
+//! }
+//! ```
+//!
+//! See [the examples folder][example] for a server and client example.
+//!
+//! [example]: https://!github.com/Millione/grpc-web/tree/main/examples/src
+
 #![feature(impl_trait_in_assoc_type)]
 
 mod codec;
@@ -6,15 +43,14 @@ mod config;
 use std::future::Future;
 
 use codec::{Encoding, WebCall};
-pub use config::Config;
-use config::Cors;
+pub use config::{Config, Cors};
 use http::{
     header::{self, CONTENT_TYPE, ORIGIN},
     HeaderMap, Response, StatusCode, Version,
 };
 use hyper::{http::HeaderValue, Method};
 use tracing::{debug, trace};
-use volo::Service;
+use volo::{Layer, Service};
 use volo_grpc::{body::Body, context::ServerContext, server::NamedService, Status};
 
 use crate::config::REQUEST_HEADERS;
@@ -23,6 +59,25 @@ pub(crate) const GRPC_WEB: &str = "application/grpc-web";
 pub(crate) const GRPC_WEB_PROTO: &str = "application/grpc-web+proto";
 pub(crate) const GRPC_WEB_TEXT: &str = "application/grpc-web-text";
 pub(crate) const GRPC_WEB_TEXT_PROTO: &str = "application/grpc-web-text+proto";
+
+#[derive(Clone, Debug)]
+pub struct WebLayer {
+    cors: Cors,
+}
+
+impl WebLayer {
+    pub fn new(cors: Cors) -> Self {
+        Self { cors }
+    }
+}
+
+impl<S> Layer<S> for WebLayer {
+    type Service = WebService<S>;
+
+    fn layer(self, inner: S) -> Self::Service {
+        WebService::new(inner, self.cors)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct WebService<S> {
@@ -117,7 +172,7 @@ where
                     request_headers,
                 } => match self.cors.preflight(req.headers(), origin, request_headers) {
                     Ok(headers) => {
-                        trace!(kind = "preflight", path = ?req.uri().path(), ?origin);
+                        trace!(kind = "preflight", path = ?cx.rpc_info.method, ?origin);
                         self.no_content(headers).await
                     }
                     Err(e) => {

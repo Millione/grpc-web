@@ -1,0 +1,32 @@
+[package]
+authors = ["LIU JIE <isjieliu@163.com>"]
+edition = "2021"
+version = "0.1.0"
+name = "examples"
+publish = false
+
+[dependencies]
+volo = { git = "https://github.com/Millione/volo", branch = "lj/dev" }
+volo-grpc = { git = "https://github.com/Millione/volo", branch = "lj/dev" }
+pilota = { git = "https://github.com/cloudwego/pilota", branch = "main" }
+
+async-trait = "0.1"
+base64 = "0.21"
+bytes = "1.0"
+futures = "0.3"
+grpc-web = { path = "../../grpc-web" }
+hyper = "0.14"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+
+[build-dependencies]
+volo-build = { git = "https://github.com/Millione/volo", branch = "lj/dev" }
+
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
