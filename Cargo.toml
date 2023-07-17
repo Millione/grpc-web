@@ -27,7 +27,7 @@ pin-project = "1"
 tracing = "0.1"
 
 [dev-dependencies]
-volo-build = { git = "https://github.com/Millione/volo", branch = "lj/dev" } 
+volo-build = { git = "https://github.com/Millione/volo", branch = "grpc-web" } 
 
 [workspace]
 members = ["examples"]
